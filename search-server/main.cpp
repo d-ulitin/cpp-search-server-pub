@@ -7,10 +7,13 @@
 #include <utility>
 #include <vector>
 #include <cassert>
+#include <numeric>
 
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+
+const double RELEVANCE_EPS = 1e-6;
 
 string ReadLine() {
     string s;
@@ -86,7 +89,7 @@ public:
         
         sort(matched_documents.begin(), matched_documents.end(),
              [](const Document& lhs, const Document& rhs) {
-                if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                if (abs(lhs.relevance - rhs.relevance) < RELEVANCE_EPS) {
                     return lhs.rating > rhs.rating;
                 } else {
                     return lhs.relevance > rhs.relevance;
@@ -169,10 +172,7 @@ private:
         if (ratings.empty()) {
             return 0;
         }
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        int rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
         return rating_sum / static_cast<int>(ratings.size());
     }
     
@@ -340,31 +340,44 @@ void TestExcludeStopWordsFromAddedDocumentContent() {
 }
 
 void TestAddDocument() {
-    int doc_id = 13;
+    int docs_count = 0;
+    int first_doc_id = 13;
     SearchServer server;
     ASSERT_EQUAL(server.GetDocumentCount(), 0);
-    server.AddDocument(doc_id, "one two three four five"s, DocumentStatus::ACTUAL, {1,2,3});
-    ASSERT_EQUAL(server.GetDocumentCount(), 1);
+    server.AddDocument(first_doc_id, "one two three four five"s, DocumentStatus::ACTUAL, {1,2,3});
+    ++docs_count;
+    ASSERT_EQUAL(server.GetDocumentCount(), docs_count);
     {
         vector<Document> docs = server.FindTopDocuments("one");
         ASSERT_EQUAL(docs.size(), 1u);
         const Document& d = docs[0];
-        ASSERT_EQUAL(d.id, doc_id);
-        ASSERT(abs(d.relevance) < 1e-10);
+        ASSERT_EQUAL(d.id, first_doc_id);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
         ASSERT_EQUAL(d.rating, 2); 
     }
     {
         vector<Document> docs = server.FindTopDocuments("five");
         ASSERT_EQUAL(docs.size(), 1u);
         const Document& d = docs[0];
-        ASSERT_EQUAL(d.id, doc_id);
-        ASSERT(abs(d.relevance) < 1e-10);
+        ASSERT_EQUAL(d.id, first_doc_id);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
         ASSERT_EQUAL(d.rating, 2); 
     }
     {
         vector<Document> docs = server.FindTopDocuments("six");
         ASSERT_EQUAL(docs.size(), 0u);
     }
+    // test adding some more documents
+    for (int i = 0; i < 3; ++i) {
+        int doc_id = first_doc_id + i + 1;
+        auto content = to_string(doc_id);
+        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, {1});
+        ++docs_count;
+        auto docs = server.FindTopDocuments(content);
+        ASSERT_EQUAL(docs.size(), 1u);
+        ASSERT_EQUAL(docs[0].id, doc_id);
+    }
+    ASSERT_EQUAL(server.GetDocumentCount(), docs_count);
 }
 
 void TestStopWords() {
@@ -378,7 +391,7 @@ void TestStopWords() {
         vector<Document> docs = server.FindTopDocuments("three");
         ASSERT_EQUAL(docs.size(), 1u);
         const Document& d = docs[0];
-        ASSERT(abs(d.relevance) < 1e-10);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
         ASSERT_EQUAL(d.id, doc_id);
     }
     {
@@ -400,7 +413,7 @@ void TestMinusWords() {
         const Document& d = docs[0];
         ASSERT_EQUAL(d.id, doc_id);
         ASSERT_EQUAL(d.rating, 2);
-        ASSERT(abs(d.relevance) < 1e-10);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
     }
     {
         vector<Document> docs = server.FindTopDocuments("two -three five"s);
@@ -412,7 +425,7 @@ void TestMinusWords() {
         const Document& d = docs[0];
         ASSERT_EQUAL(d.id, doc_id);
         ASSERT_EQUAL(d.rating, 2);
-        ASSERT(abs(d.relevance) < 1e-10);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
     }
 }
 
@@ -455,7 +468,7 @@ void TestRelevanceSort() {
     }
 }
 
-void TestDocumentRaiting() {
+void TestDocumentRating() {
     SearchServer server;
     server.SetStopWords("a and not"s);
     server.AddDocument(1, "not one"s, DocumentStatus::ACTUAL, {1});
@@ -513,15 +526,25 @@ void TestUserPredicate() {
 
 void TestStatusFilter() {
     SearchServer server;
-    server.AddDocument(1, "xxx one"s, DocumentStatus::ACTUAL, {1});
-    server.AddDocument(2, "xxx two"s, DocumentStatus::BANNED, {2});
-    server.AddDocument(3, "xxx three"s, DocumentStatus::IRRELEVANT, {3});
-    server.AddDocument(4, "xxx four"s, DocumentStatus::REMOVED, {4});
+    server.AddDocument(1, "xxx actual"s, DocumentStatus::ACTUAL, {1});
+    server.AddDocument(2, "xxx banned"s, DocumentStatus::BANNED, {2});
+    server.AddDocument(3, "xxx irrelevant"s, DocumentStatus::IRRELEVANT, {3});
+    server.AddDocument(4, "xxx removed"s, DocumentStatus::REMOVED, {4});
     ASSERT_EQUAL(server.GetDocumentCount(), 4);
     {
         auto docs = server.FindTopDocuments("xxx"s, DocumentStatus::ACTUAL);
         ASSERT_EQUAL(docs.size(), 1u);
         ASSERT_EQUAL(docs[0].id, 1);
+    }
+    {
+        auto docs = server.FindTopDocuments("xxx"s, DocumentStatus::BANNED);
+        ASSERT_EQUAL(docs.size(), 1u);
+        ASSERT_EQUAL(docs[0].id, 2);
+    }
+    {
+        auto docs = server.FindTopDocuments("xxx"s, DocumentStatus::IRRELEVANT);
+        ASSERT_EQUAL(docs.size(), 1u);
+        ASSERT_EQUAL(docs[0].id, 3);
     }
     {
         auto docs = server.FindTopDocuments("xxx"s, DocumentStatus::REMOVED);
@@ -544,14 +567,14 @@ void TestRelevanceValue() {
         // relevance = TF * IDF
         // TF = the_word_number_in_document / total_words_number_in_document
         // IDF = log(total_number_of_documents / number_of_documents_with_the_word)
-        ASSERT(abs(docs.at(0).relevance - (3.0/8.0) * log(4.0/3.0)) < 1e-10);
-        ASSERT(abs(docs.at(1).relevance - (2.0/7.0) * log(4.0/3.0)) < 1e-10);
-        ASSERT(abs(docs.at(2).relevance - (1.0/6.0) * log(4.0/3.0)) < 1e-10);
+        ASSERT(abs(docs.at(0).relevance - (3.0/8.0) * log(4.0/3.0)) < RELEVANCE_EPS);
+        ASSERT(abs(docs.at(1).relevance - (2.0/7.0) * log(4.0/3.0)) < RELEVANCE_EPS);
+        ASSERT(abs(docs.at(2).relevance - (1.0/6.0) * log(4.0/3.0)) < RELEVANCE_EPS);
     }
     {
         vector<Document> docs = server.FindTopDocuments("yyy"s);
         ASSERT_EQUAL(docs.size(), 1u);
-        ASSERT(abs(docs.at(0).relevance - (1.0/2.0) * log(4.0/1.0)) < 1e-10);
+        ASSERT(abs(docs.at(0).relevance - (1.0/2.0) * log(4.0/1.0)) < RELEVANCE_EPS);
     }
 }
 
@@ -563,7 +586,7 @@ void TestSearchServer() {
     RUN_TEST(TestMinusWords);
     RUN_TEST(TestMatchDocument);
     RUN_TEST(TestRelevanceSort);
-    RUN_TEST(TestDocumentRaiting);
+    RUN_TEST(TestDocumentRating);
     RUN_TEST(TestUserPredicate);
     RUN_TEST(TestStatusFilter);
     RUN_TEST(TestRelevanceValue);
