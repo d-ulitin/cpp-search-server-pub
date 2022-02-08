@@ -93,8 +93,6 @@ public:
             throw invalid_argument("Document's id is out of range"s);
         if (documents_.count(document_id) > 0)
             throw invalid_argument("Document's id alredy exists"s);
-        if (!IsValidWord(document))
-            throw invalid_argument("Document contains invalid character"s);
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words) {
@@ -198,6 +196,8 @@ private:
     vector<string> SplitIntoWordsNoStop(const string& text) const {
         vector<string> words;
         for (const string& word : SplitIntoWords(text)) {
+            if (!IsValidWord(word))
+                throw invalid_argument("Invalid character"s);
             if (!IsStopWord(word)) {
                 words.push_back(word);
             }
@@ -226,12 +226,12 @@ private:
         bool is_minus = false;
 
         if (text[0] == '-') {
-            if (text.length() < 2)
-                throw invalid_argument("Minus-word doesn't contain characters after '-'"s);
-            if (text[1] == '-')
-                throw invalid_argument("Minus-word starts with '--'"s);
             is_minus = true;
             text = text.substr(1);
+            if (text.empty())
+                throw invalid_argument("Minus-word doesn't contain characters after '-'"s);
+            if (text[0] == '-')
+                throw invalid_argument("Minus-word starts with '--'"s);
         }
 
         if (!IsValidWord(text))
