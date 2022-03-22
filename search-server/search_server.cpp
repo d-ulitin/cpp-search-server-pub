@@ -24,13 +24,33 @@ void SearchServer::AddDocument(int document_id, const string& document, Document
     const double inv_word_count = 1.0 / words.size();
     for (const string& word : words) {
         word_to_document_freqs_[word][document_id] += inv_word_count;
+        document_id_to_word_freqs_[document_id][word] += inv_word_count;
     }
     documents_.emplace(document_id, 
         DocumentData{
             ComputeAverageRating(ratings), 
             status
         });
-    document_ids_.push_back(document_id);
+    document_ids_.insert(document_id);
+}
+
+void
+SearchServer::RemoveDocument(int document_id) {
+    if (document_ids_.count(document_id) == 0)
+        return;
+    set<string> empty_words;
+    for (auto& word_freqs : document_id_to_word_freqs_[document_id]) {
+        auto& doc_freqs = word_to_document_freqs_[word_freqs.first];
+        doc_freqs.erase(document_id);
+        if (doc_freqs.size() == 0)
+            empty_words.insert(word_freqs.first);
+    }
+    for (const string& empty_word : empty_words) {
+        word_to_document_freqs_.erase(empty_word);
+    }
+    document_id_to_word_freqs_.erase(document_id);
+    documents_.erase(document_id);
+    document_ids_.erase(document_id);
 }
 
 vector<Document>
@@ -77,10 +97,25 @@ SearchServer::MatchDocument(const string& raw_query, int document_id) const {
     return {matched_words, documents_.at(document_id).status};
 }
 
-int SearchServer::GetDocumentId(int index) const {
-    // method 'at' throws exception if index is out of range
-    return static_cast<int>(document_ids_.at(index));
+std::set<int>::const_iterator
+SearchServer::begin() const {
+    return document_ids_.begin();
 }
+
+std::set<int>::const_iterator
+SearchServer::end() const {
+    return document_ids_.end();
+}
+
+const map<string, double>&
+SearchServer::GetWordFrequencies(int document_id) const {
+    static const map<string, double> empty {};
+    if (document_id_to_word_freqs_.count(document_id) > 0)
+        return document_id_to_word_freqs_.at(document_id);
+    else
+        return empty;
+}
+
 
 void SearchServer::SetStopWords(const string& text) {
     for (const string& word : SplitIntoWords(text)) {
