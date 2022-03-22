@@ -16,10 +16,12 @@ SearchServer::SearchServer(const string& stop_words)
 }
 
 void SearchServer::AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings) {
-    if (document_id < 0)
+    if (document_id < 0) {
         throw invalid_argument("Document's id is out of range"s);
-    if (documents_.count(document_id) > 0)
+    }
+    if (documents_.count(document_id) > 0) {
         throw invalid_argument("Document's id alredy exists"s);
+    }
     const vector<string> words = SplitIntoWordsNoStop(document);
     const double inv_word_count = 1.0 / words.size();
     for (const string& word : words) {
@@ -110,10 +112,12 @@ SearchServer::end() const {
 const map<string, double>&
 SearchServer::GetWordFrequencies(int document_id) const {
     static const map<string, double> empty {};
-    if (document_id_to_word_freqs_.count(document_id) > 0)
-        return document_id_to_word_freqs_.at(document_id);
-    else
+    auto it = document_id_to_word_freqs_.lower_bound(document_id);
+    if (it != document_id_to_word_freqs_.end()) {
+        return it->second;
+    } else {
         return empty;
+    }
 }
 
 

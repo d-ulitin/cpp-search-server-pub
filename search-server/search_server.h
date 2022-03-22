@@ -12,6 +12,9 @@
 
 #include "document.h"
 
+static inline const double RELEVANCE_EPS = 1e-6;
+static inline const int MAX_RESULT_DOCUMENT_COUNT = 5;
+
 class SearchServer {
 
 public:
@@ -23,9 +26,6 @@ public:
     SearchServer() = default;
 
     void AddDocument(int document_id, const std::string& document, DocumentStatus status, const std::vector<int>& ratings);
-
-    static inline const double RELEVANCE_EPS = 1e-6;
-    static inline const int MAX_RESULT_DOCUMENT_COUNT = 5;
 
     template <typename Filter>
     std::vector<Document> FindTopDocuments(const std::string& raw_query, Filter filter) const;

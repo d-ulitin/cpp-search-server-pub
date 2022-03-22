@@ -91,7 +91,7 @@ void TestAddDocument() {
         ASSERT_EQUAL(docs.size(), 1u);
         const Document& d = docs[0];
         ASSERT_EQUAL(d.id, first_doc_id);
-        ASSERT(abs(d.relevance) < SearchServer::RELEVANCE_EPS);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
         ASSERT_EQUAL(d.rating, 2); 
     }
     {
@@ -99,7 +99,7 @@ void TestAddDocument() {
         ASSERT_EQUAL(docs.size(), 1u);
         const Document& d = docs[0];
         ASSERT_EQUAL(d.id, first_doc_id);
-        ASSERT(abs(d.relevance) < SearchServer::RELEVANCE_EPS);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
         ASSERT_EQUAL(d.rating, 2); 
     }
     {
@@ -129,7 +129,7 @@ void TestStopWords() {
         vector<Document> docs = server.FindTopDocuments("three");
         ASSERT_EQUAL(docs.size(), 1u);
         const Document& d = docs[0];
-        ASSERT(abs(d.relevance) < SearchServer::RELEVANCE_EPS);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
         ASSERT_EQUAL(d.id, doc_id);
     }
     {
@@ -150,7 +150,7 @@ void TestMinusWords() {
         const Document& d = docs[0];
         ASSERT_EQUAL(d.id, doc_id);
         ASSERT_EQUAL(d.rating, 2);
-        ASSERT(abs(d.relevance) < SearchServer::RELEVANCE_EPS);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
     }
     {
         vector<Document> docs = server.FindTopDocuments("two -three five"s);
@@ -162,7 +162,7 @@ void TestMinusWords() {
         const Document& d = docs[0];
         ASSERT_EQUAL(d.id, doc_id);
         ASSERT_EQUAL(d.rating, 2);
-        ASSERT(abs(d.relevance) < SearchServer::RELEVANCE_EPS);
+        ASSERT(abs(d.relevance) < RELEVANCE_EPS);
     }
 }
 
@@ -301,14 +301,14 @@ void TestRelevanceValue() {
         // relevance = TF * IDF
         // TF = the_word_number_in_document / total_words_number_in_document
         // IDF = log(total_number_of_documents / number_of_documents_with_the_word)
-        ASSERT(abs(docs.at(0).relevance - (3.0/8.0) * log(4.0/3.0)) < SearchServer::RELEVANCE_EPS);
-        ASSERT(abs(docs.at(1).relevance - (2.0/7.0) * log(4.0/3.0)) < SearchServer::RELEVANCE_EPS);
-        ASSERT(abs(docs.at(2).relevance - (1.0/6.0) * log(4.0/3.0)) < SearchServer::RELEVANCE_EPS);
+        ASSERT(abs(docs.at(0).relevance - (3.0/8.0) * log(4.0/3.0)) < RELEVANCE_EPS);
+        ASSERT(abs(docs.at(1).relevance - (2.0/7.0) * log(4.0/3.0)) < RELEVANCE_EPS);
+        ASSERT(abs(docs.at(2).relevance - (1.0/6.0) * log(4.0/3.0)) < RELEVANCE_EPS);
     }
     {
         vector<Document> docs = server.FindTopDocuments("yyy"s);
         ASSERT_EQUAL(docs.size(), 1u);
-        ASSERT(abs(docs.at(0).relevance - (1.0/2.0) * log(4.0/1.0)) < SearchServer::RELEVANCE_EPS);
+        ASSERT(abs(docs.at(0).relevance - (1.0/2.0) * log(4.0/1.0)) < RELEVANCE_EPS);
     }
 }
 
