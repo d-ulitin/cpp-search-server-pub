@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <execution>
 #include <numeric>
 #include <stdexcept>
 #include <string>
@@ -53,6 +54,53 @@ SearchServer::RemoveDocument(int document_id) {
     document_id_to_word_freqs_.erase(document_id);
     documents_.erase(document_id);
     document_ids_.erase(document_id);
+}
+
+template <>
+void
+SearchServer::RemoveDocument(std::execution::sequenced_policy, int document_id) {
+    RemoveDocument(document_id);
+}
+
+template <>
+void
+SearchServer::RemoveDocument(std::execution::parallel_policy, int document_id) {
+    if (document_ids_.count(document_id) == 0)
+        return;
+
+    // get words of the document
+    const map<string, double>& word_freqs = document_id_to_word_freqs_[document_id];
+    // create vector with pointers to words and iterators to erase
+    vector<pair<const string*, map<string, map<int, double>>::iterator>> words;
+    words.reserve(word_freqs.size());
+    const auto keep_it_off = word_to_document_freqs_.end();
+    for (const auto& [word, freq] : word_freqs)
+        words.emplace_back(make_pair(&word, keep_it_off));
+    
+    // parallel
+    for_each(
+        execution::par,
+        words.begin(),
+        words.end(),
+        [document_id, this](auto& word_pair) {
+            auto iter = word_to_document_freqs_.find(*word_pair.first);
+            // can erase bacause each thread for unique word
+            iter->second.erase(document_id);
+            // flag empty word to erase later
+            if (iter->second.empty())
+                word_pair.second = iter;
+        } );
+
+    // erase empty words
+    for (const auto& [word, erase_iter] : words) {
+        if (erase_iter != keep_it_off)
+            word_to_document_freqs_.erase(erase_iter);
+    }
+
+    document_id_to_word_freqs_.erase(document_id);
+    documents_.erase(document_id);
+    document_ids_.erase(document_id);
+
 }
 
 vector<Document>
@@ -112,7 +160,7 @@ SearchServer::end() const {
 const map<string, double>&
 SearchServer::GetWordFrequencies(int document_id) const {
     static const map<string, double> empty {};
-    auto it = document_id_to_word_freqs_.lower_bound(document_id);
+    auto it = document_id_to_word_freqs_.find(document_id);
     if (it != document_id_to_word_freqs_.end()) {
         return it->second;
     } else {

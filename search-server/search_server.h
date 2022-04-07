@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <execution>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -47,6 +48,9 @@ public:
     const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
 
     void RemoveDocument(int document_id);
+
+    template <typename ExecutionPolicy>
+    void RemoveDocument(ExecutionPolicy ep, int document_id);
 
 private:
     struct DocumentData {
