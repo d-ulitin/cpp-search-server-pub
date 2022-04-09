@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <string_view>
+#include <cassert>
 
 // SF.7: Don’t write using namespace at global scope in a header file
 // https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rs-using-directive
@@ -39,13 +41,20 @@ public:
 
     int GetDocumentCount() const;
     
-    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, int document_id) const;
+    std::tuple<std::vector<std::string>, DocumentStatus>
+    MatchDocument(const std::string& raw_query, int document_id) const;
+
+    std::tuple<std::vector<std::string>, DocumentStatus>
+    MatchDocument(const std::execution::sequenced_policy& policy, const std::string& raw_query, int document_id) const;
+
+    std::tuple<std::vector<std::string>, DocumentStatus>
+    MatchDocument(const std::execution::parallel_policy& policy, const std::string& raw_query, int document_id) const;
 
     std::set<int>::const_iterator begin() const;
 
     std::set<int>::const_iterator end() const;
 
-    const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
+    const std::map<std::string_view, double>& GetWordFrequencies(int document_id) const;
 
     void RemoveDocument(int document_id);
 
@@ -57,39 +66,45 @@ private:
         int rating;
         DocumentStatus status;
     };
-    std::set<std::string> stop_words_;
-    std::map<std::string, std::map<int, double>> word_to_document_freqs_;
+
+    // words storage; store here all the words of the server
+    std::set<std::string> words_;
+    // use string_view objects that points to strings from words_ above
+    std::set<std::string_view> stop_words_;
+    std::map<std::string_view, std::map<int, double>> word_to_document_freqs_;
+    std::map<int, std::map<std::string_view, double>> document_id_to_word_freqs_;
     std::map<int, DocumentData> documents_;
     std::set<int> document_ids_;
-    std::map<int, std::map<std::string, double>> document_id_to_word_freqs_;
 
-    void SetStopWords(const std::string& text);
-    bool IsStopWord(const std::string& word) const;
+    bool IsStopWord(const std::string_view word) const;
     std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const;
     static int ComputeAverageRating(const std::vector<int>& ratings);
     
     struct QueryWord {
-        std::string data;
+        std::string_view data;
         bool is_minus;
         bool is_stop;
     };
     
-    QueryWord ParseQueryWord(std::string text) const;
+    QueryWord ParseQueryWord(std::string_view text) const;
     
     struct Query {
-        std::set<std::string> plus_words;
-        std::set<std::string> minus_words;
+        const std::string text;
+        std::vector<std::string_view> plus_words;
+        std::vector<std::string_view> minus_words;
     };
     
     Query ParseQuery(const std::string& text) const;
-    
+    Query ParseQuery(const std::execution::sequenced_policy& policy, const std::string& text) const;
+    Query ParseQuery(const std::execution::parallel_policy& policy, const std::string& text) const;
+
     // Existence required
-    double ComputeWordInverseDocumentFreq(const std::string& word) const;
+    double ComputeWordInverseDocumentFreq(const std::string_view word) const;
 
     template <typename Filter>
     std::vector<Document> FindAllDocuments(const Query& query, Filter filter) const;
 
-    static bool IsValidWord(const std::string& word);
+    static bool IsValidWord(const std::string_view word);
 };
 
 template <typename StringContainer>
@@ -98,8 +113,12 @@ SearchServer::SearchServer(const StringContainer& stop_words) {
     for (const std::string& word : stop_words) {
         if (!IsValidWord(word))
             throw std::invalid_argument("Stop-word contains invalid character"s);
-        if (!word.empty() && stop_words_.count(word) == 0)
-            stop_words_.insert(word);
+        if (!word.empty()) {
+            auto [it, inserted] = words_.insert(word);
+            assert(inserted);
+            auto [it_view, inserted_view] = stop_words_.insert(*it);
+            assert(inserted_view);
+        }
     }
 }
 
@@ -129,7 +148,7 @@ template <typename Filter>
 std::vector<Document>
 SearchServer::FindAllDocuments(const Query& query, Filter filter) const {
     std::map<int, double> document_to_relevance;
-    for (const std::string& word : query.plus_words) {
+    for (const std::string_view word : query.plus_words) {
         if (word_to_document_freqs_.count(word) == 0) {
             continue;
         }
@@ -142,7 +161,7 @@ SearchServer::FindAllDocuments(const Query& query, Filter filter) const {
         }
     }
     
-    for (const std::string& word : query.minus_words) {
+    for (const std::string_view word : query.minus_words) {
         if (word_to_document_freqs_.count(word) == 0) {
             continue;
         }

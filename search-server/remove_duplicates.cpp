@@ -9,12 +9,12 @@
 using namespace std;
 
 void RemoveDuplicates(SearchServer& search_server) {
-    set<set<string>> unique_docs;
+    set<set<string_view>> unique_docs;
     vector<int> docs_to_delete;
     for (int document_id : search_server) {
-        map<string, double> word_freqs = search_server.GetWordFrequencies(document_id);
-        set<string> doc_words;
-        for (const pair<string, double> wf: word_freqs) {
+        map<string_view, double> word_freqs = search_server.GetWordFrequencies(document_id);
+        set<string_view> doc_words;
+        for (const pair<string_view, double> wf: word_freqs) {
             doc_words.insert(wf.first);
         }
         if (unique_docs.count(doc_words) > 0) {
