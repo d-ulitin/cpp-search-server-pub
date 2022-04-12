@@ -6,6 +6,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <string_view>
 #include <cassert>
@@ -25,30 +26,31 @@ public:
     explicit SearchServer(const StringContainer& stop_words);
     
     explicit SearchServer(const std::string& stop_words);
+    explicit SearchServer(const std::string_view stop_words);
 
     SearchServer() = default;
 
-    void AddDocument(int document_id, const std::string& document, DocumentStatus status, const std::vector<int>& ratings);
+    void AddDocument(int document_id, const std::string_view document, DocumentStatus status, const std::vector<int>& ratings);
 
     template <typename Filter>
-    std::vector<Document> FindTopDocuments(const std::string& raw_query, Filter filter) const;
+    std::vector<Document> FindTopDocuments(const std::string_view raw_query, Filter filter) const;
 
     // overload FindTopDocuments with no parameters (return actual documents)
-    std::vector<Document> FindTopDocuments(const std::string& raw_query) const;
+    std::vector<Document> FindTopDocuments(const std::string_view raw_query) const;
 
     // overload FindTopDocuments with status parameter only
-    std::vector<Document> FindTopDocuments(const std::string& raw_query, DocumentStatus status) const;
+    std::vector<Document> FindTopDocuments(const std::string_view raw_query, DocumentStatus status) const;
 
     int GetDocumentCount() const;
     
-    std::tuple<std::vector<std::string>, DocumentStatus>
-    MatchDocument(const std::string& raw_query, int document_id) const;
+    std::tuple<std::vector<std::string_view>, DocumentStatus>
+    MatchDocument(const std::string_view raw_query, int document_id) const;
 
-    std::tuple<std::vector<std::string>, DocumentStatus>
-    MatchDocument(const std::execution::sequenced_policy& policy, const std::string& raw_query, int document_id) const;
+    std::tuple<std::vector<std::string_view>, DocumentStatus>
+    MatchDocument(const std::execution::sequenced_policy& policy, const std::string_view raw_query, int document_id) const;
 
-    std::tuple<std::vector<std::string>, DocumentStatus>
-    MatchDocument(const std::execution::parallel_policy& policy, const std::string& raw_query, int document_id) const;
+    std::tuple<std::vector<std::string_view>, DocumentStatus>
+    MatchDocument(const std::execution::parallel_policy& policy, const std::string_view raw_query, int document_id) const;
 
     std::set<int>::const_iterator begin() const;
 
@@ -77,7 +79,7 @@ private:
     std::set<int> document_ids_;
 
     bool IsStopWord(const std::string_view word) const;
-    std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const;
+    std::vector<std::string> SplitIntoWordsNoStop(const std::string_view text) const;
     static int ComputeAverageRating(const std::vector<int>& ratings);
     
     struct QueryWord {
@@ -94,9 +96,9 @@ private:
         std::vector<std::string_view> minus_words;
     };
     
-    Query ParseQuery(const std::string& text) const;
-    Query ParseQuery(const std::execution::sequenced_policy& policy, const std::string& text) const;
-    Query ParseQuery(const std::execution::parallel_policy& policy, const std::string& text) const;
+    Query ParseQuery(const std::string_view text) const;
+
+    std::vector<std::string_view> SplitIntoWordsViews(const std::string_view text) const;
 
     // Existence required
     double ComputeWordInverseDocumentFreq(const std::string_view word) const;
@@ -110,11 +112,11 @@ private:
 template <typename StringContainer>
 SearchServer::SearchServer(const StringContainer& stop_words) {
     using namespace std::literals;
-    for (const std::string& word : stop_words) {
+    for (const std::string_view word : stop_words) {
         if (!IsValidWord(word))
             throw std::invalid_argument("Stop-word contains invalid character"s);
         if (!word.empty()) {
-            auto [it, inserted] = words_.insert(word);
+            auto [it, inserted] = words_.insert(std::string(word));
             assert(inserted);
             auto [it_view, inserted_view] = stop_words_.insert(*it);
             assert(inserted_view);
@@ -124,7 +126,7 @@ SearchServer::SearchServer(const StringContainer& stop_words) {
 
 template <typename Filter>
 std::vector<Document>
-SearchServer::FindTopDocuments(const std::string& raw_query, Filter filter) const {            
+SearchServer::FindTopDocuments(const std::string_view raw_query, Filter filter) const {            
     const Query query = ParseQuery(raw_query);
     auto matched_documents = FindAllDocuments(query, filter);
     

@@ -5,7 +5,7 @@
 
 using namespace std;
 
-vector<string> SplitIntoWords(const string& text) {
+vector<string> SplitIntoWords(const string_view text) {
     if (text.empty())
         return {};
     vector<string> words;
