@@ -3,6 +3,7 @@
 #include <cstdlib> // size_t
 #include <iterator>
 #include <vector>
+#include <cassert>
 
 // SF.7: Don’t write using namespace at global scope in a header file
 // https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rs-using-directive
@@ -65,6 +66,8 @@ private:
 
 template <typename Iterator>
 Paginator<Iterator>::Paginator(Iterator begin, Iterator end, size_t page_size) {
+    assert(page_size > 0);
+    assert(end >= begin);
     for (size_t left = std::distance(begin, end); left > 0;) {
         const size_t current_page_size = std::min(page_size, left);
         const Iterator current_page_end = std::next(begin, current_page_size);

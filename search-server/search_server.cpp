@@ -133,39 +133,6 @@ int SearchServer::GetDocumentCount() const {
     return documents_.size();
 }
 
-#if 0
-
-tuple<vector<string_view>, DocumentStatus>
-SearchServer::MatchDocument(const string_view raw_query, int document_id) const {
-
-    auto document_data = documents_.find(document_id);
-    if (document_data == documents_.end())
-        throw std::out_of_range("document_id not found");
-
-    const Query query = ParseQuery(raw_query);
-
-    for (const string_view word : query.minus_words) {
-        auto it = word_to_document_freqs_.find(word);
-        if (it != word_to_document_freqs_.end() && it->second.count(document_id) > 0) {
-            return {vector<string_view>{}, document_data->second.status};
-        }
-    }
-
-    vector<string_view> matched_words;
-    for (const string_view word : query.plus_words) {
-        auto it = word_to_document_freqs_.find(word);
-        if (it != word_to_document_freqs_.end() && it->second.count(document_id) > 0) {
-            // use it->first referencing to words_
-            // because 'word' is to be dangling after 'query' destroyed
-            matched_words.push_back(it->first);
-        }
-    }
-
-    return {move(matched_words), document_data->second.status};
-}
-
-#else
-
 tuple<vector<string_view>, DocumentStatus>
 SearchServer::MatchDocument(const string_view raw_query, int document_id) const {
 
@@ -200,8 +167,6 @@ SearchServer::MatchDocument(const string_view raw_query, int document_id) const 
 
     return {move(matched_words_vec), document_data->second.status};
 }
-
-#endif
 
 tuple<vector<string_view>, DocumentStatus>
 SearchServer::MatchDocument(const execution::sequenced_policy &, const string_view raw_query, int document_id) const {
