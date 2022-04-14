@@ -120,17 +120,13 @@ SearchServer::RemoveDocument(std::execution::parallel_policy, int document_id) {
 vector<Document>
 SearchServer::FindTopDocuments(const string_view raw_query) const
 {
-    return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
+    return FindTopDocuments(execution::seq, raw_query);
 }
 
 vector<Document>
 SearchServer::FindTopDocuments(const string_view raw_query, DocumentStatus status) const
 {
-    return FindTopDocuments(raw_query,
-        [status](int id, DocumentStatus st, int rating) {
-            (void)id;
-            (void)rating;
-            return st == status;} );
+    return FindTopDocuments(execution::seq, raw_query, status);
 }
 
 int SearchServer::GetDocumentCount() const {
@@ -403,7 +399,15 @@ SearchServer::SplitIntoWordsViews(const string_view raw_query) const {
 }
 
 double SearchServer::ComputeWordInverseDocumentFreq(const string_view word) const {
-    return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
+    const auto& it = word_to_document_freqs_.find(word);
+    assert(it != word_to_document_freqs_.end());
+    return ComputeWordInverseDocumentFreq(it->second.size());
+}
+
+double SearchServer::ComputeWordInverseDocumentFreq(int docs_with_word) const {
+    assert(docs_with_word > 0);
+    return log(static_cast<double>(GetDocumentCount())
+               / static_cast<double>(docs_with_word));
 }
 
 bool SearchServer::IsValidWord(const string_view word) {
