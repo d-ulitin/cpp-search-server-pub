@@ -8,31 +8,45 @@ DEPS := $(CPPSOURCE:.cpp=.dep)
 # GCH := $(CPPHEADERS:.h=.h.gch)
 TARGET := search-server.out
 
+all: $(TARGET)
+
 $(TARGET): $(OBJECTS)
 	$(LD) $(OBJECTS) -o $(TARGET) -ltbb -lpthread
 
-deps: $(DEPS)
+%.o: %.cpp
+	$(CPP) $(CPPFLAGS) $< -o $@
 
-%.dep: %.cpp
-	$(CPP) -MM $< > $@
+.PHONY: clean
+clean:
+	rm -f $(OBJECTS) $(TARGET)
 
-include $(DEPS)
+MAKEFILEDEPS := Makefile.deps
+
+include $(MAKEFILEDEPS)
+
+$(MAKEFILEDEPS):
+	$(CPP) $(CPPFLAGS) -MM $(CPPSOURCE) > Makefile.deps
+
+.PHONY: cleandeps
+cleandeps:
+	rm -f $(MAKEFILEDEPS)
+
+.PHONY: cleanall
+cleanall: clean cleandeps
+
+# deps: $(DEPS)
+
+# %.dep: %.cpp
+# 	$(CPP) -MM $< > $@
+
+# include $(DEPS)
+
+# .PHONY: cleandeps
+# cleandeps:
+# 	rm -f $(DEPS)
 
 # headers: $(GCH)
 
 # %.h.gch: %.h
 # 	$(CPP) $(CPPFLAGS) $< -o $@
 
-%.o: %.cpp
-	$(CPP) $(CPPFLAGS) $< -o $@
-
-.PHONY: clean
-
-clean:
-	rm $(OBJECTS)
-	rm $(TARGET)
-
-.PHONY: cleandeps
-
-cleandeps:
-	rm -f $(DEPS)
