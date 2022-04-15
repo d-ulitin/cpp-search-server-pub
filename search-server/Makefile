@@ -8,7 +8,7 @@ DEPS := $(CPPSOURCE:.cpp=.dep)
 # GCH := $(CPPHEADERS:.h=.h.gch)
 TARGET := search-server.out
 
-all: $(TARGET)
+all: deps $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	$(LD) $(OBJECTS) -o $(TARGET) -ltbb -lpthread
@@ -20,30 +20,22 @@ $(TARGET): $(OBJECTS)
 clean:
 	rm -f $(OBJECTS) $(TARGET)
 
-MAKEFILEDEPS := Makefile.deps
-
-include $(MAKEFILEDEPS)
-
-$(MAKEFILEDEPS):
-	$(CPP) $(CPPFLAGS) -MM $(CPPSOURCE) > Makefile.deps
-
-.PHONY: cleandeps
-cleandeps:
-	rm -f $(MAKEFILEDEPS)
-
 .PHONY: cleanall
 cleanall: clean cleandeps
 
-# deps: $(DEPS)
+.PHONY: deps
+deps: $(DEPS)
 
-# %.dep: %.cpp
-# 	$(CPP) -MM $< > $@
+%.dep: %.cpp
+#	$(CPP) -MM $< > $@
+# 	replace 'main.o : ...' to 'main.o main.dep: ...'
+	$(CPP) -MM $< | sed -r 's/^(.*)[.]o/\0 \1.dep/' > $@ 
 
-# include $(DEPS)
+include $(DEPS)
 
-# .PHONY: cleandeps
-# cleandeps:
-# 	rm -f $(DEPS)
+.PHONY: cleandeps
+cleandeps:
+	rm -f $(DEPS)
 
 # headers: $(GCH)
 
