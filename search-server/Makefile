@@ -5,7 +5,6 @@ CPPSOURCE := $(wildcard *.cpp)
 CPPHEADERS := $(wildcard *.h)
 OBJECTS := $(CPPSOURCE:.cpp=.o)
 DEPS := $(CPPSOURCE:.cpp=.dep)
-# GCH := $(CPPHEADERS:.h=.h.gch)
 TARGET := search-server.out
 
 all: deps $(TARGET)
@@ -28,8 +27,8 @@ deps: $(DEPS)
 
 %.dep: %.cpp
 #	$(CPP) -MM $< > $@
-# 	replace 'main.o : ...' to 'main.o main.dep: ...'
-	$(CPP) -MM $< | sed -r 's/^(.*)[.]o/\0 \1.dep/' > $@ 
+# 	replace 'main.o: ...' to 'main.o main.dep: ...'
+	$(CPP) -MM $< | sed -r 's/^(.*)[.]o:/\1.o \1.dep:/' > $@ 
 
 include $(DEPS)
 
@@ -37,8 +36,10 @@ include $(DEPS)
 cleandeps:
 	rm -f $(DEPS)
 
+# GCH := $(CPPHEADERS:.h=.h.gch)
+
 # headers: $(GCH)
 
 # %.h.gch: %.h
-# 	$(CPP) $(CPPFLAGS) $< -o $@
+# 	$(CPP) -x c++-header -std=c++17 $< -o $@
 
